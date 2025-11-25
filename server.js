@@ -3,20 +3,16 @@ const app = express();
 
 const PORT = process.env.PORT || 10000;
 
-const GAMES_BASE = "https://games.roproxy.com";
+const GAMES_BASE = "https://roxytheproxy.com/games.roblox.com";
 
 const DEFAULT_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   "Accept": "application/json, text/plain, */*",
-  "Referer": "https://www.roblox.com/",
-  "Origin": "https://www.roblox.com"
 };
 
 async function fetchJson(url) {
-  const resp = await fetch(url, {
-    headers: DEFAULT_HEADERS,
-  });
+  const resp = await fetch(url, { headers: DEFAULT_HEADERS });
 
   if (!resp.ok) {
     throw new Error(`HTTP ${resp.status} for ${url}`);
@@ -26,10 +22,9 @@ async function fetchJson(url) {
 }
 
 app.get("/", (req, res) => {
-  res.send("roblox-gamepass-api is running");
+  res.send("roblox-gamepass-api is running (Roxy)");
 });
 
-// GET /user-gamepasses?userId=123
 app.get("/user-gamepasses", async (req, res) => {
   const userId = parseInt(req.query.userId, 10);
   if (!userId) {
