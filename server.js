@@ -5,11 +5,23 @@ const PORT = process.env.PORT || 10000;
 
 const GAMES_BASE = "https://games.roproxy.com";
 
+const DEFAULT_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "application/json, text/plain, */*",
+  "Referer": "https://www.roblox.com/",
+  "Origin": "https://www.roblox.com"
+};
+
 async function fetchJson(url) {
-  const resp = await fetch(url, { timeout: 10000 });
+  const resp = await fetch(url, {
+    headers: DEFAULT_HEADERS,
+  });
+
   if (!resp.ok) {
     throw new Error(`HTTP ${resp.status} for ${url}`);
   }
+
   return await resp.json();
 }
 
@@ -17,6 +29,7 @@ app.get("/", (req, res) => {
   res.send("roblox-gamepass-api is running");
 });
 
+// GET /user-gamepasses?userId=123
 app.get("/user-gamepasses", async (req, res) => {
   const userId = parseInt(req.query.userId, 10);
   if (!userId) {
@@ -52,7 +65,15 @@ app.get("/user-gamepasses", async (req, res) => {
 
     for (const universeId of games) {
       const url = `${GAMES_BASE}/v1/games/${universeId}/game-passes?limit=100&sortOrder=Asc`;
-      const data = await fetchJson(url);
+
+      let data;
+      try {
+        data = await fetchJson(url);
+      } catch (err) {
+        console.error("Error fetching passes for universe", universeId, ":", err);
+        continue;
+      }
+
       if (!data || !Array.isArray(data.data)) continue;
 
       for (const p of data.data) {
