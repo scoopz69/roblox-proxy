@@ -1,34 +1,77 @@
-// server.js
-
 const express = require("express");
-const fetch = require("node-fetch");
-const cors = require("cors");
-
 const app = express();
-app.use(cors());
 
-app.get("/proxy", async (req, res) => {
+const PORT = process.env.PORT || 10000;
+
+const GAMES_BASE = "https://games.roproxy.com";
+
+async function fetchJson(url) {
+  const resp = await fetch(url, { timeout: 10000 });
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status} for ${url}`);
+  }
+  return await resp.json();
+}
+
+app.get("/", (req, res) => {
+  res.send("roblox-gamepass-api is running");
+});
+
+app.get("/user-gamepasses", async (req, res) => {
+  const userId = parseInt(req.query.userId, 10);
+  if (!userId) {
+    return res.status(400).json({ error: "Missing userId" });
+  }
+
   try {
-    const target = req.query.url;
+    console.log("Fetching gamepasses for user", userId);
 
-    if (!target || !target.startsWith("https://")) {
-      return res.status(400).json({ error: "Invalid URL" });
+    let games = [];
+    let cursor = "";
+
+    while (true) {
+      const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+      const url = `${GAMES_BASE}/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Desc${cursorParam}`;
+
+      const data = await fetchJson(url);
+      if (!data || !Array.isArray(data.data)) break;
+
+      for (const g of data.data) {
+        if (g.id) games.push(g.id);
+      }
+
+      if (data.nextPageCursor) {
+        cursor = data.nextPageCursor;
+      } else {
+        break;
+      }
     }
-    if (!target.includes("roblox.com")) {
-      return res.status(403).json({ error: "Only Roblox domains allowed" });
+
+    const seen = {};
+    const passes = [];
+
+    for (const universeId of games) {
+      const url = `${GAMES_BASE}/v1/games/${universeId}/game-passes?limit=100&sortOrder=Asc`;
+      const data = await fetchJson(url);
+      if (!data || !Array.isArray(data.data)) continue;
+
+      for (const p of data.data) {
+        const id = Number(p.id);
+        if (id && !seen[id]) {
+          seen[id] = true;
+          passes.push(id);
+        }
+      }
     }
 
-    const response = await fetch(target);
-    const text = await response.text();
-
-    res.send(text);
+    console.log("User", userId, "has", passes.length, "passes");
+    res.json({ passes });
   } catch (err) {
-    console.error("Proxy error:", err);
-    res.status(500).json({ error: "Proxy error", details: err.message });
+    console.error("Error in /user-gamepasses:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Roblox Proxy running on port", PORT);
+  console.log(`roblox-gamepass-api listening on port ${PORT}`);
 });
